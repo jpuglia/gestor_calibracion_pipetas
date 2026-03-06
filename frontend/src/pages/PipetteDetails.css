@@ -1,0 +1,331 @@
+.pipette-details-page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  width: fit-content;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.back-link:hover {
+  color: var(--primary-color);
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 32px;
+}
+
+.main-info-card, .specs-card, .history-section {
+  background: var(--surface-color);
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.status-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-select {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}
+
+.status-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status-select.green {
+  background-color: #e6f7ed;
+  color: #1e7e34;
+  border-color: #c3e6cb;
+}
+
+.status-select.yellow {
+  background-color: #fff9e6;
+  color: #856404;
+  border-color: #ffeeba;
+}
+
+.status-select.red {
+  background-color: #fce8e6;
+  color: #c82333;
+  border-color: #f5c6cb;
+}
+
+.status-select:focus {
+  box-shadow: 0 0 0 3px rgba(0, 153, 219, 0.2);
+}
+
+.updating-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-left-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-item {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  align-items: center;
+}
+
+.info-item .label {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-item .value {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.specs-card h3, .history-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0;
+  margin-bottom: 24px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--secondary-color);
+}
+
+.card-header-with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.card-header-with-action h3 {
+  margin-bottom: 0;
+}
+
+.action-link-btn {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  text-decoration: underline;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+}
+
+.action-link-btn:hover {
+  background-color: var(--bg-color);
+  color: #0088be;
+}
+
+.small-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.small-table th, .small-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.small-table th {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 700;
+  background-color: var(--bg-color);
+}
+
+.add-spec-form {
+  border-top: 2px dashed var(--border-color);
+  padding-top: 24px;
+  margin-top: 16px;
+}
+
+.add-spec-form h4 {
+  margin: 0 0 16px 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.spec-inputs {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.spec-inputs input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  outline: none;
+  font-weight: 500;
+}
+
+.spec-inputs input:focus {
+  border-color: var(--primary-color);
+}
+
+.spec-inputs button {
+  padding: 10px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 700;
+  transition: background-color 0.2s;
+}
+
+.spec-inputs button:hover {
+  background-color: #0088be;
+}
+
+.history-section {
+  width: 100%;
+}
+
+.capitalize {
+  text-transform: capitalize;
+}
+
+.empty-msg, .empty-history {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 40px;
+  background-color: var(--bg-color);
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 1100px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-section {
+  background: var(--surface-color);
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.chart-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--secondary-color);
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.export-btn:hover {
+  background-color: #0088be;
+}
+
+/* Print styles */
+@media print {
+  .hide-on-print {
+    display: none !important;
+  }
+  .pipette-details-page {
+    gap: 0;
+  }
+  .chart-section.print-landscape {
+    width: 100% !important;
+    page-break-inside: avoid;
+    box-shadow: none;
+    padding: 0;
+  }
+  .chart-container {
+    height: 90vh !important;
+    width: 100% !important;
+  }
+  @page {
+    size: landscape;
+    margin: 1cm;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+  }
+}

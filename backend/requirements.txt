@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlmodel
+pandas
+python-multipart
+aiosqlite
+pytest
+pytest-asyncio
+httpx
