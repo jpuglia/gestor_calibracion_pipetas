@@ -67,7 +67,7 @@ describe('PipetteCreateForm', () => {
       brand: 'Gilson',
       model: 'Pipetman',
       max_volume: 1000,
-      status: 'Active',
+      status: 'En Uso',
       description: 'Test pipette',
     };
 

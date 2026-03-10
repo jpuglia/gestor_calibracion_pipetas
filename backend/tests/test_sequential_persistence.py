@@ -61,8 +61,8 @@ def test_sequential_repetition_count(client: TestClient, session: Session):
     assert res2["repetition_count"] == 2
     assert res2["is_oos"] is True
 
-    # 5. Add third result (Rep 3, different volume, Pass)
-    # Note: rep_count is per event_log_id as per requirement
+    # 5. Add third result (Rep 1, different volume, Pass)
+    # Note: rep_count is per event_log_id AND tested_volume as per new requirement
     res3_data = {
         "event_log_id": event_id,
         "tested_volume": 10.0,  # No spec for this volume
@@ -72,7 +72,7 @@ def test_sequential_repetition_count(client: TestClient, session: Session):
     response = client.post("/results", json=res3_data)
     assert response.status_code == 200
     res3 = response.json()
-    assert res3["repetition_count"] == 3
+    assert res3["repetition_count"] == 1
     assert res3["is_oos"] is False  # Default is False if no spec
 
 

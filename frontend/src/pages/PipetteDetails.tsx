@@ -17,14 +17,14 @@ import {
   Tooltip,
 } from 'chart.js';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Calendar, Download, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Calendar, Download, Eye, ShieldCheck, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Link, useParams } from 'react-router-dom';
 
-import { eventService, pipetteService, specificationService } from '../services/api';
+import { eventService, pipetteService, resultService, specificationService } from '../services/api';
 import { PipetteStatus } from '../types';
-import type { EventLog, GlobalSpecification, Pipette, Specification } from '../types';
+import type { EventLog, GlobalSpecification, Pipette, Result, Specification } from '../types';
 import { toAbsoluteValue } from '../utils/mathUtils';
 
 ChartJS.register(
@@ -56,6 +56,9 @@ const PipetteDetails: React.FC = () => {
   const [calibrationErrors, setCalibrationErrors] = useState<CalibrationErrorPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<EventLog | null>(null);
+  const [eventResults, setEventResults] = useState<Result[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
   const chartRef = useRef<any>(null);
 
   useEffect(() => {
@@ -135,6 +138,25 @@ const PipetteDetails: React.FC = () => {
       link.download = `${pipette?.codigo}_Analisis_Error.png`;
       link.click();
     }
+  };
+
+  const handleViewResults = async (event: EventLog) => {
+    setSelectedEvent(event);
+    if (!event.id) return;
+    try {
+      setLoadingResults(true);
+      const results = await resultService.getByEvent(event.id);
+      setEventResults(results);
+    } catch (error) {
+      console.error('Error fetching event results:', error);
+    } finally {
+      setLoadingResults(false);
+    }
+  };
+
+  const closeResultsModal = () => {
+    setSelectedEvent(null);
+    setEventResults([]);
   };
 
   if (loading) return <div className="loading">Cargando detalles...</div>;
@@ -300,13 +322,12 @@ const PipetteDetails: React.FC = () => {
             <h2>{pipette.codigo}</h2>
             <div className="status-selector-container">
               <select
-                className={`status-select ${
-                  pipette.status.toLowerCase() === 'en uso'
-                    ? 'green'
-                    : pipette.status.toLowerCase() === 'fuera de uso'
-                      ? 'red'
-                      : 'yellow'
-                }`}
+                className={`status-select ${pipette.status.toLowerCase() === 'en uso'
+                  ? 'green'
+                  : pipette.status.toLowerCase() === 'fuera de uso'
+                    ? 'red'
+                    : 'yellow'
+                  }`}
                 value={pipette.status}
                 onChange={handleStatusChange}
                 disabled={updatingStatus}
@@ -374,21 +395,26 @@ const PipetteDetails: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {/* Prefer specific specs, fallback to global */}
-                {(specs.length > 0
-                  ? specs.map((s) => ({
-                      id: s.id,
+                {(() => {
+                  const specificVolumes = new Set(specs.map((s) => s.volume));
+                  const combinedSpecs = [
+                    ...specs.map((s) => ({
+                      id: `s-${s.id}`,
                       volume: s.volume,
                       max_error_percent: s.max_error,
                       is_global: false,
-                    }))
-                  : globalSpecs.map((gs) => ({
-                      id: gs.id,
-                      volume: gs.test_volume,
-                      max_error_percent: gs.max_error_percent,
-                      is_global: true,
-                    }))
-                )
+                    })),
+                    ...globalSpecs
+                      .filter((gs) => !specificVolumes.has(gs.test_volume))
+                      .map((gs) => ({
+                        id: `g-${gs.id}`,
+                        volume: gs.test_volume,
+                        max_error_percent: gs.max_error_percent,
+                        is_global: true,
+                      })),
+                  ];
+                  return combinedSpecs;
+                })()
                   .sort((a: any, b: any) => b.volume - a.volume)
                   .map((s: any) => (
                     <tr key={s.id}>
@@ -433,6 +459,7 @@ const PipetteDetails: React.FC = () => {
                   <th>Tipo</th>
                   <th>Proveedor</th>
                   <th>Vencimiento</th>
+                  <th>Resultados</th>
                 </tr>
               </thead>
               <tbody>
@@ -448,6 +475,15 @@ const PipetteDetails: React.FC = () => {
                       <td className="capitalize">{e.type_event}</td>
                       <td>{e.service_provider}</td>
                       <td className="bold">{e.expiration_date}</td>
+                      <td>
+                        <button
+                          className="action-btn view-btn"
+                          onClick={() => handleViewResults(e)}
+                          title="Ver resultados específicos"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
               </tbody>
@@ -455,6 +491,59 @@ const PipetteDetails: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Resultados Modal */}
+      {selectedEvent && (
+        <div className="modal-overlay">
+          <div className="modal-content result-modular-view">
+            <div className="modal-header">
+              <h3>
+                Resultados de {selectedEvent.type_event} - {selectedEvent.date_calibration}
+              </h3>
+              <button className="close-btn" onClick={closeResultsModal}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {loadingResults ? (
+                <div className="loading">Cargando resultados...</div>
+              ) : eventResults.length === 0 ? (
+                <div className="empty-msg">No hay resultados registrados para este servicio.</div>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Volumen Medido (µL)</th>
+                      <th>Error (%)</th>
+                      <th>Estado</th>
+                      <th>Repetición</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventResults.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.tested_volume}</td>
+                        <td className="bold">{r.measured_error}%</td>
+                        <td>
+                          <div className="status-cell">
+                            <span
+                              className={`status-dot ${r.is_oos ? 'oos' : 'in-spec'}`}
+                              title={r.is_oos ? 'Fuera de Especificación' : 'Dentro de Especificación'}
+                            />
+                            {r.is_oos ? 'OOS' : 'OK'}
+                          </div>
+                        </td>
+                        <td>{r.repetition_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

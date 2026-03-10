@@ -41,8 +41,10 @@ const CalibrationForm: React.FC = () => {
     expiration_date: '',
   });
 
+  const [reportNumber, setReportNumber] = useState('');
+
   const [results, setResults] = useState<ResultState[]>([
-    { tested_volume: 0, measured_error: 0, report_number: '' },
+    { tested_volume: 0, measured_error: 0 },
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -84,29 +86,38 @@ const CalibrationForm: React.FC = () => {
 
       setSpecs(combinedSpecs);
 
-      try {
-        const data = await pipetteService.getLastCalibrationTemplate(Number(id));
-        console.log('React State Update: templateVolumes received', data.volumes);
-
-        if (data.volumes && data.volumes.length > 0) {
-          setResults(
-            data.volumes.map((vol: number) => ({
-              tested_volume: vol,
-              measured_error: 0,
-              report_number: '',
-              is_template: true,
-            })),
-          );
-        } else {
-          setResults([{ tested_volume: 0, measured_error: 0, report_number: '' }]);
+      if (combinedSpecs.length > 0) {
+        // Sort specs by volume descending for consistent UI (e.g. 1000, 500, 100)
+        const sortedSpecs = [...combinedSpecs].sort((a, b) => b.volume - a.volume);
+        setResults(
+          sortedSpecs.map((spec) => ({
+            tested_volume: spec.volume,
+            measured_error: 0,
+            is_template: true,
+          })),
+        );
+      } else {
+        try {
+          const data = await pipetteService.getLastCalibrationTemplate(Number(id));
+          if (data.volumes && data.volumes.length > 0) {
+            setResults(
+              data.volumes.map((vol: number) => ({
+                tested_volume: vol,
+                measured_error: 0,
+                is_template: true,
+              })),
+            );
+          } else {
+            setResults([{ tested_volume: 0, measured_error: 0 }]);
+          }
+        } catch (error) {
+          console.error('Error fetching calibration template:', error);
+          setResults([{ tested_volume: 0, measured_error: 0 }]);
         }
-      } catch (error) {
-        console.error('Error fetching calibration template:', error);
-        setResults([{ tested_volume: 0, measured_error: 0, report_number: '' }]);
       }
     } else {
       setSpecs([]);
-      setResults([{ tested_volume: 0, measured_error: 0, report_number: '' }]);
+      setResults([{ tested_volume: 0, measured_error: 0 }]);
     }
   };
 
@@ -114,7 +125,7 @@ const CalibrationForm: React.FC = () => {
    * Adds a new empty result row to the form.
    */
   const handleAddResult = () => {
-    setResults([...results, { tested_volume: 0, measured_error: 0, report_number: '' }]);
+    setResults([...results, { tested_volume: 0, measured_error: 0 }]);
   };
 
   /**
@@ -226,7 +237,7 @@ const CalibrationForm: React.FC = () => {
             event_log_id: createdEvent.id,
             tested_volume: Number(r.tested_volume),
             measured_error: Number(r.measured_error),
-            report_number: r.report_number,
+            report_number: reportNumber,
           });
           console.log(`Result ${i + 1} saved.`);
         } catch (resErr) {
@@ -244,7 +255,8 @@ const CalibrationForm: React.FC = () => {
         service_provider: '',
         expiration_date: '',
       });
-      setResults([{ tested_volume: 0, measured_error: 0, report_number: '' }]);
+      setReportNumber('');
+      setResults([{ tested_volume: 0, measured_error: 0 }]);
 
       setTimeout(() => setSuccess(false), 5000);
     } catch (error) {
@@ -342,6 +354,19 @@ const CalibrationForm: React.FC = () => {
                 />
               </div>
             </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="report-number">Número de Informe</label>
+                <input
+                  id="report-number"
+                  type="text"
+                  placeholder="Ej: CERT-123"
+                  value={reportNumber}
+                  onChange={(e) => setReportNumber(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
           </section>
 
           <section className="form-section">
@@ -385,19 +410,6 @@ const CalibrationForm: React.FC = () => {
                         required
                       />
                     </div>
-                    <div className="form-group">
-                      <label htmlFor={`report-${idx}`}>N° Informe</label>
-                      <input
-                        id={`report-${idx}`}
-                        type="text"
-                        placeholder="CERT-123"
-                        value={result.report_number}
-                        onChange={(e) =>
-                          handleResultChange(idx, 'report_number', e.target.value)
-                        }
-                        required
-                      />
-                    </div>
                     {results.length > 1 && (
                       <button
                         type="button"
@@ -412,10 +424,10 @@ const CalibrationForm: React.FC = () => {
                     Number(result.tested_volume) || 0,
                     Number(result.measured_error) || 0,
                   ) && (
-                    <div className="oos-warning">
-                      <AlertCircle size={14} /> Fuera de especificación (OOS)
-                    </div>
-                  )}
+                      <div className="oos-warning">
+                        <AlertCircle size={14} /> Fuera de especificación (OOS)
+                      </div>
+                    )}
                 </div>
               ))}
             </div>

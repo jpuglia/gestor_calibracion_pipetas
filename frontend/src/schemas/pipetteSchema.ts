@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PipetteStatus } from '../types';
 
 /**
  * Zod validation schema for Pipette registration.
@@ -14,9 +15,7 @@ export const pipetteRegistrationSchema = z.object({
     .refine((val) => !isNaN(val) && val > 0, {
       message: 'El volumen máximo debe ser un número positivo',
     }),
-  status: z.enum(['Active', 'In Calibration', 'Decommissioned'], {
-    errorMap: () => ({ message: 'Seleccione un estado válido' }),
-  }),
+  status: z.nativeEnum(PipetteStatus),
 });
 
 /**

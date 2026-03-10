@@ -120,6 +120,16 @@ def test_oos_flagging_logic(client: TestClient, session: Session):
         border_resp.json()["is_oos"] is False
     )  # is abs(err) > max_error (abs(-0.5) > 0.5 is False)
 
+    # 4.5 Test NEGATIVE OOS (OOS = True)
+    neg_oos_result = {
+        "event_log_id": event_id,
+        "tested_volume": 100.0,
+        "measured_error": -0.51,  # Over 0.5 when abs is taken
+        "report_number": "REP-NEG",
+    }
+    neg_oos_resp = client.post("/results", json=neg_oos_result)
+    assert neg_oos_resp.json()["is_oos"] is True
+
     # 5. Test NO SPEC (OOS = False)
     no_spec_result = {
         "event_log_id": event_id,

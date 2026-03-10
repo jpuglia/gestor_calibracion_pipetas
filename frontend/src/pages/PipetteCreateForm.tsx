@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { pipetteService } from '../services/api';
 import { pipetteRegistrationSchema, type PipetteRegistrationData } from '../schemas/pipetteSchema';
+import { PipetteStatus } from '../types';
 import './PipetteCreateForm.css';
 
 /**
@@ -24,7 +25,7 @@ const PipetteCreateForm: React.FC = () => {
   } = useForm<PipetteRegistrationData>({
     resolver: zodResolver(pipetteRegistrationSchema),
     defaultValues: {
-      status: 'Active',
+      status: PipetteStatus.EN_USO,
     },
   });
 
@@ -35,7 +36,7 @@ const PipetteCreateForm: React.FC = () => {
     setIsSubmitting(true);
     setServerError(null);
     setSuccessMsg(null);
-    
+
     try {
       await pipetteService.create(data);
       setSuccessMsg('Pipeta registrada con éxito.');
@@ -57,7 +58,7 @@ const PipetteCreateForm: React.FC = () => {
   return (
     <div className="pipette-form-container">
       <h2>Registro de Nueva Pipeta</h2>
-      
+
       <form onSubmit={handleSubmit(onSubmit)} className="form-grid">
         <div className="form-group">
           <label htmlFor="codigo">Código (UID)</label>
@@ -123,9 +124,9 @@ const PipetteCreateForm: React.FC = () => {
         <div className="form-group">
           <label htmlFor="status">Estado</label>
           <select id="status" {...register('status')}>
-            <option value="Active">Activa</option>
-            <option value="In Calibration">En Calibración</option>
-            <option value="Decommissioned">Fuera de Servicio</option>
+            <option value="En Uso">Activa</option>
+            <option value="Calibrando">En Calibración</option>
+            <option value="Fuera de uso">Fuera de servicio</option>
           </select>
           {errors.status && <span className="error-message">{errors.status.message}</span>}
         </div>

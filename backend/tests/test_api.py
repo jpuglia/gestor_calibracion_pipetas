@@ -191,3 +191,54 @@ def test_calibration_error_tracking(client: TestClient, session: Session):
     # Second point (2026-03-05)
     assert errors[1]["date_calibration"] == "2026-03-05"
     assert errors[1]["error_percent"] == 0.35  # Last repetition from that date
+
+
+def test_get_event_results(client: TestClient, session: Session):
+    # 1. Create a pipette
+    pipette = Pipette(
+        codigo="PP-RES",
+        description="Pipette for results test",
+        brand="Brand",
+        model="Model",
+        serial_number="SN-RES",
+        status="En Uso",
+        max_volume=100.0,
+    )
+    session.add(pipette)
+    session.commit()
+    session.refresh(pipette)
+
+    # 2. Add an event
+    event_data = {
+        "pipette_id": pipette.id,
+        "type_event": "calibración",
+        "date_calibration": "2026-03-10",
+        "service_provider": "Test Labs",
+        "expiration_date": "2027-03-10",
+    }
+    resp_event = client.post("/events", json=event_data)
+    event_id = resp_event.json()["id"]
+
+    # 3. Add results
+    results_to_add = [
+        {"event_log_id": event_id, "tested_volume": 100.0, "measured_error": 0.5, "report_number": "R1"},
+        {"event_log_id": event_id, "tested_volume": 100.0, "measured_error": 0.6, "report_number": "R1"},
+        {"event_log_id": event_id, "tested_volume": 50.0, "measured_error": 0.2, "report_number": "R1"}
+    ]
+    
+    for r in results_to_add:
+        client.post("/results", json=r)
+        
+    # 4. Fetch results for event
+    resp_results = client.get(f"/events/{event_id}/results")
+    assert resp_results.status_code == 200
+    
+    results = resp_results.json()
+    assert len(results) == 3
+    # Check ordering (volume, then repetition_count) -> 50.0 first, then 100.0 repr 1, then 100.0 repr 2
+    assert results[0]["tested_volume"] == 50.0
+    assert results[0]["repetition_count"] == 1
+    assert results[1]["tested_volume"] == 100.0
+    assert results[1]["repetition_count"] == 1
+    assert results[2]["tested_volume"] == 100.0
+    assert results[2]["repetition_count"] == 2

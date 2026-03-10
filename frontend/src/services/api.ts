@@ -154,6 +154,16 @@ export const resultService = {
     const response = await api.post('/results', resultData);
     return response.data;
   },
+
+  /**
+   * Retrieves all results for a specific event log.
+   * @param {number} eventId - Event Log ID.
+   * @returns {Promise<Result[]>} Array of calibration results.
+   */
+  getByEvent: async (eventId: number): Promise<Result[]> => {
+    const response = await api.get(`/events/${eventId}/results`);
+    return response.data;
+  },
 };
 
 /**

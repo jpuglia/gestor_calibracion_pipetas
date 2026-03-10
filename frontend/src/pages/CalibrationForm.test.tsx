@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CalibrationForm from '../pages/CalibrationForm';
 import { pipetteService, specificationService } from '../services/api';
+import { PipetteStatus } from '../types';
 
 // Mock services
 vi.mock('../services/api', () => ({
@@ -33,7 +34,7 @@ describe('CalibrationForm OOS Logic', () => {
         brand: 'Brand',
         model: 'M',
         serial_number: 'SN',
-        status: 'En uso',
+        status: PipetteStatus.EN_USO,
         max_volume: 1000,
       },
     ]);
@@ -47,10 +48,14 @@ describe('CalibrationForm OOS Logic', () => {
     });
   });
 
-  it('auto-populates results when a pipette with history is selected', async () => {
-    vi.mocked(pipetteService.getLastCalibrationTemplate).mockResolvedValue({
-      volumes: [100, 500, 1000],
-    });
+  it('auto-populates results when a pipette with specifications is selected', async () => {
+    // 1. Mock specs (specific to pipette)
+    vi.mocked(specificationService.getByPipette).mockResolvedValue([
+      { id: 1, pipette_id: 1, volume: 500, max_error: 1.0 },
+      { id: 2, pipette_id: 1, volume: 1000, max_error: 0.5 },
+      { id: 3, pipette_id: 1, volume: 100, max_error: 5.0 },
+    ]);
+
     render(<CalibrationForm />);
 
     await waitFor(() => {
@@ -61,15 +66,44 @@ describe('CalibrationForm OOS Logic', () => {
       target: { value: '1' },
     });
 
-    // Should now have 3 volume inputs with values 100, 500, 1000
+    // Should now have 3 volume inputs sorted descending: 1000, 500, 100
     await waitFor(() => {
       const volInputs = screen.getAllByLabelText(/Volumen \(µL\)/i);
       expect(volInputs).toHaveLength(3);
-      expect(volInputs[0]).toHaveValue('100');
+      expect(volInputs[0]).toHaveValue('1000');
       expect(volInputs[1]).toHaveValue('500');
-      expect(volInputs[2]).toHaveValue('1000');
-      // Verify they are read-only
+      expect(volInputs[2]).toHaveValue('100');
+      // Verify they are read-only (is_template = true)
       expect(volInputs[0]).toHaveAttribute('readonly');
+    });
+  });
+
+  it('falls back to global specifications if specific ones are missing', async () => {
+    // 1. Mock NO specific specs
+    vi.mocked(specificationService.getByPipette).mockResolvedValue([]);
+    // 2. Mock GLOBAL specs for the pipette category (max_volume 1000)
+    vi.mocked(specificationService.getGlobalSpecsByVolMax).mockResolvedValue([
+      { id: 10, vol_max: 1000, test_volume: 1000, max_error_percent: 1 },
+      { id: 11, vol_max: 1000, test_volume: 500, max_error_percent: 2 },
+      { id: 12, vol_max: 1000, test_volume: 100, max_error_percent: 10 },
+    ]);
+
+    render(<CalibrationForm />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Seleccionar Pipeta/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/Seleccionar Pipeta/i), {
+      target: { value: '1' },
+    });
+
+    await waitFor(() => {
+      const volInputs = screen.getAllByLabelText(/Volumen \(µL\)/i);
+      expect(volInputs).toHaveLength(3);
+      expect(volInputs[0]).toHaveValue('1000');
+      expect(volInputs[1]).toHaveValue('500');
+      expect(volInputs[2]).toHaveValue('100');
     });
   });
 
@@ -85,9 +119,9 @@ describe('CalibrationForm OOS Logic', () => {
       target: { value: '1' },
     });
 
-    // 2. Wait for template load and fill results
+    // 2. Wait for results to be populated
     await waitFor(() => {
-      expect(pipetteService.getLastCalibrationTemplate).toHaveBeenCalledWith(1);
+      expect(screen.getByLabelText(/Volumen \(µL\)/i)).toHaveValue('1000');
     });
 
     const volInput = screen.getByLabelText(/Volumen \(µL\)/i);
@@ -114,7 +148,7 @@ describe('CalibrationForm OOS Logic', () => {
     });
 
     await waitFor(() => {
-      expect(pipetteService.getLastCalibrationTemplate).toHaveBeenCalledWith(1);
+      expect(screen.getByLabelText(/Volumen \(µL\)/i)).toHaveValue('1000');
     });
 
     const volInput = screen.getByLabelText(/Volumen \(µL\)/i);
@@ -140,7 +174,7 @@ describe('CalibrationForm OOS Logic', () => {
     });
 
     await waitFor(() => {
-      expect(pipetteService.getLastCalibrationTemplate).toHaveBeenCalledWith(1);
+      expect(screen.getByLabelText(/Volumen \(µL\)/i)).toHaveValue('1000');
     });
 
     const volInput = screen.getByLabelText(/Volumen \(µL\)/i);
@@ -168,7 +202,7 @@ describe('CalibrationForm OOS Logic', () => {
     });
 
     await waitFor(() => {
-      expect(pipetteService.getLastCalibrationTemplate).toHaveBeenCalledWith(1);
+      expect(screen.getByLabelText(/Volumen \(µL\)/i)).toHaveValue('1000');
     });
 
     const errInput = screen.getByLabelText(/Error \(%\)/i);

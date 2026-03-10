@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from typing import List
 
-import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -118,58 +117,39 @@ def map_status(status_str: str) -> PipetteStatus:
 
 def initial_import():
     """
-    Imports initial data from CSV files if the database is empty.
+    Imports initial data if the database is empty.
 
-    Loads pipettes and global specifications from the 'data' directory.
+    Loads hardcoded global specifications for ease of dockerization and deployment.
     """
-    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-    pipettes_csv = os.path.join(data_dir, "listado_pipetas.csv")
-    specs_csv = os.path.join(data_dir, "especificacion_volumen.csv")
-
     with Session(engine) as session:
-        # 1. Import Pipettes
-        if os.path.exists(pipettes_csv):
-            df_p = pd.read_csv(pipettes_csv, sep=";", encoding="utf-8")
-            for _, row in df_p.iterrows():
-                statement = select(Pipette).where(Pipette.codigo == row["codigo"])
-                existing_pipette = session.exec(statement).first()
-                status_mapped = map_status(row["Estado"])
-                if existing_pipette:
-                    existing_pipette.description = row["Descripción"]
-                    existing_pipette.brand = row["Marca"]
-                    existing_pipette.model = row["Modelo"]
-                    existing_pipette.serial_number = str(row["N° Serie"])
-                    existing_pipette.status = status_mapped
-                    existing_pipette.max_volume = float(row["Volumen máximo"])
-                    session.add(existing_pipette)
-                else:
-                    pipette = Pipette(
-                        codigo=row["codigo"],
-                        description=row["Descripción"],
-                        brand=row["Marca"],
-                        model=row["Modelo"],
-                        serial_number=str(row["N° Serie"]),
-                        status=status_mapped,
-                        max_volume=float(row["Volumen máximo"]),
-                    )
-                    session.add(pipette)
-
-        # 2. Import Global Specifications
-        if os.path.exists(specs_csv):
-            # Check if GlobalSpecification is already populated
-            count_gs = session.exec(
-                select(func.count()).select_from(GlobalSpecification)
-            ).one()
-            if count_gs == 0:
-                print(f"Importing global specifications from {specs_csv}")
-                df_s = pd.read_csv(specs_csv, sep=";", encoding="utf-8", decimal=",")
-                for _, row in df_s.iterrows():
-                    gs = GlobalSpecification(
-                        vol_max=float(row["vol_max"]),
-                        test_volume=float(row["volumen"]),
-                        max_error_percent=float(row["especificacion_error"]),
-                    )
-                    session.add(gs)
+        # Import Global Specifications
+        count_gs = session.exec(
+            select(func.count()).select_from(GlobalSpecification)
+        ).one()
+        
+        if count_gs == 0:
+            print("Importing hardcoded global specifications")
+            hardcoded_specs = [
+                {"vol_max": 1000.0, "test_volume": 1000.0, "max_error_percent": 0.8},
+                {"vol_max": 1000.0, "test_volume": 500.0, "max_error_percent": 1.6},
+                {"vol_max": 1000.0, "test_volume": 100.0, "max_error_percent": 8.0},
+                {"vol_max": 200.0, "test_volume": 200.0, "max_error_percent": 0.8},
+                {"vol_max": 200.0, "test_volume": 100.0, "max_error_percent": 1.6},
+                {"vol_max": 200.0, "test_volume": 20.0, "max_error_percent": 8.0},
+                {"vol_max": 50.0, "test_volume": 50.0, "max_error_percent": 1.0},
+                {"vol_max": 50.0, "test_volume": 25.0, "max_error_percent": 2.0},
+                {"vol_max": 50.0, "test_volume": 5.0, "max_error_percent": 10.0},
+                {"vol_max": 10000.0, "test_volume": 10000.0, "max_error_percent": 0.6},
+                {"vol_max": 10000.0, "test_volume": 5000.0, "max_error_percent": 1.2},
+                {"vol_max": 10000.0, "test_volume": 1000.0, "max_error_percent": 6.0},
+            ]
+            for row in hardcoded_specs:
+                gs = GlobalSpecification(
+                    vol_max=row["vol_max"],
+                    test_volume=row["test_volume"],
+                    max_error_percent=row["max_error_percent"],
+                )
+                session.add(gs)
 
         session.commit()
 
@@ -203,6 +183,25 @@ def create_pipette(pipette_in: PipetteCreate, session: Session = Depends(get_ses
         session.add(db_pipette)
         session.commit()
         session.refresh(db_pipette)
+
+        # Automated Specification Assignment
+        # Query GlobalSpecification for matching max_volume
+        global_specs = session.exec(
+            select(GlobalSpecification).where(GlobalSpecification.vol_max == db_pipette.max_volume)
+        ).all()
+
+        if global_specs:
+            print(f"[AUTO-SPEC] Assigning {len(global_specs)} global specifications to Pipette {db_pipette.id}")
+            for gs in global_specs:
+                new_spec = Specification(
+                    pipette_id=db_pipette.id,
+                    volume=gs.test_volume,
+                    max_error=gs.max_error_percent
+                )
+                session.add(new_spec)
+            session.commit()
+            session.refresh(db_pipette)
+
         return db_pipette
     except IntegrityError as e:
         session.rollback()
@@ -212,7 +211,13 @@ def create_pipette(pipette_in: PipetteCreate, session: Session = Depends(get_ses
                 raise HTTPException(status_code=409, detail="Código ya registrado")
             if "pipette.serial_number" in detail:
                 raise HTTPException(status_code=409, detail="Número de serie ya registrado")
-        raise HTTPException(status_code=409, detail="Conflict: Duplicate data")
+        elif "CHECK constraint failed" in detail:
+            if "status" in detail:
+                raise HTTPException(status_code=400, detail="Estado de pipeta inválido")
+            raise HTTPException(status_code=400, detail=f"Error de validación de datos: {detail}")
+        
+        print(f"[DB ERROR] IntegrityError: {detail}")
+        raise HTTPException(status_code=409, detail="Conflicto: Datos duplicados o inválidos")
 
 
 @app.get("/global-specifications", response_model=List[GlobalSpecification])
@@ -318,6 +323,20 @@ def read_events(pipette_id: int, session: Session = Depends(get_session)):
     return session.exec(select(EventLog).where(EventLog.pipette_id == pipette_id)).all()
 
 
+@app.get("/events/{event_id}/results", response_model=List[Result])
+def read_event_results(event_id: int, session: Session = Depends(get_session)):
+    """
+    Retrieves all measurement results for a specific event log.
+
+    Args:
+        event_id (int): The ID of the event log.
+
+    Returns:
+        List[Result]: A list of measurement results.
+    """
+    return session.exec(select(Result).where(Result.event_log_id == event_id).order_by(Result.target_volume if hasattr(Result, 'target_volume') else Result.tested_volume, Result.repetition_count)).all()
+
+
 @app.get("/pipettes/{pipette_id}/calibration-errors")
 def get_calibration_errors(pipette_id: int, session: Session = Depends(get_session)):
     """
@@ -332,7 +351,6 @@ def get_calibration_errors(pipette_id: int, session: Session = Depends(get_sessi
     Returns:
         List[dict]: A list of data points containing date, volume, error, and limit.
     """
-    # Explicitly select from Result and join EventLog and Pipette
     subquery = (
         select(
             EventLog.date_calibration,
@@ -427,7 +445,8 @@ def create_result(result_in: ResultCreate, session: Session = Depends(get_sessio
 
     # 2. Automated repetition count
     count_statement = select(func.count(Result.id)).where(
-        Result.event_log_id == result_in.event_log_id
+        Result.event_log_id == result_in.event_log_id,
+        Result.tested_volume == result_in.tested_volume
     )
     rep_count = session.exec(count_statement).one() + 1
 
@@ -457,10 +476,10 @@ def create_result(result_in: ResultCreate, session: Session = Depends(get_sessio
                 limit_percent = gs.max_error_percent
 
     if limit_percent is not None:
-        # User requested to remove absolute value comparison and use relative error (%)
-        is_oos = result_in.measured_error > limit_percent
+        # User requested to use absolute value comparison for OOS
+        is_oos = abs(result_in.measured_error) > limit_percent
         print(
-            f"[DEBUG] OOS Check (Relative): error={result_in.measured_error}%, limit={limit_percent}%, result={is_oos}"
+            f"[DEBUG] OOS Check (Absolute): error={result_in.measured_error}%, limit={limit_percent}%, result={is_oos}"
         )
     else:
         print(
