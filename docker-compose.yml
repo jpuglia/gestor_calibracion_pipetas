@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./pipettes.db:/pipettes.db
+    restart: always
+    environment:
+      - DATABASE_URL=sqlite:///../pipettes.db
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=http://192.168.32.60:8000
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
